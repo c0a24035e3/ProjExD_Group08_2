@@ -124,8 +124,8 @@ class Enemy(pg.sprite.Sprite):
         if self.shoot_delay <= 0:
             report = Report(self.rect.centerx, self.rect.bottom)
             enemy_reports.add(report)
-            all_sprites.add(report)
-            self.shoot_delay = random.randint(100, 260)
+            all_sprites.add(report) #
+            self.shoot_delay = random.randint(100, 260) 
 
 class Report(pg.sprite.Sprite):
     """敵が発射する「レポート」弾を表すクラス。"""
@@ -155,12 +155,24 @@ class Boss(pg.sprite.Sprite):
     """
     def __init__(self,):
         super().__init__()
-        self.image = pg.image.load("img/enemy.png")#boss(kari)
-        self.rect = self.image.get_rect(center = (WIDTH / 2, HEIGHT == max))
-        
-        
-        
+        self.image = pg.image.load("img/enemy.png")#boss
+        self.rect = self.image.get_rect(center = (WIDTH / 2, HEIGHT == max))#画面上部中央に出現
+        self.speed_x = 1 #左右の速度
+        self.hp = 100 #ボスの体力
+        self.shoot_delay = 90  #弾を撃つ間隔
+        self.timer = 0  #タイマーの初期化
 
+    def update(self):
+        # 左右移動のみ
+        self.rect.x += self.speed_x
+        if self.rect.left < 0 or self.rect.right > WIDTH: 
+            self.speed_x *= -1   # 画面端で反転
+        self.timer += 1
+        if self.timer >= self.shoot_delay: # 弾の発射
+            report = Report(self.rect.centerx, self.rect.bottom)
+            enemy_reports.add(report)
+            all_sprites.add(report)
+            self.timer = 0
 
 
 
@@ -169,7 +181,8 @@ all_sprites = pg.sprite.Group()
 pencils = pg.sprite.Group()
 enemies = pg.sprite.Group()
 enemy_reports = pg.sprite.Group()
-bosses = False
+bosses = False #ボスが出現しているかどうかを判断
+boss_spawn_time = 20 * 60  # 20秒後に出現（60fps換算）
 
 player = Player()
 all_sprites.add(player)   # ← ここは必ず追加しておく（描画されるように）
@@ -184,8 +197,10 @@ score = 0
 
 # --- メインループ ---
 running = True
+frame_count = 0 # ボス用のカウント
 while running:
     clock.tick(60)
+    frame_count +=  1 # ボス出現カウントの増加
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
@@ -197,10 +212,10 @@ while running:
 
 
     #ボスを追加
-    if score >= 1 and not bosses:
-        boss = Boss()
-        all_sprites.add(boss)
-        bosses = True
+    if not bosses and frame_count >= boss_spawn_time: # 出現方法の設定
+        boss = Boss() #クラスの呼び出し
+        all_sprites.add(boss) #描画
+        bosses = True #ボスが出現（無限ループの回避
 
 
     # まとめて更新（Player.update は内部でキー取得している）
@@ -217,6 +232,15 @@ while running:
     # 衝突判定：敵の弾とプレイヤー
     if pg.sprite.spritecollideany(player, enemy_reports):
         running = False  # ゲームオーバー
+
+    if bosses and 'boss' in locals():  #ボスと弾の衝突判定をするif文
+        hits = pg.sprite.spritecollide(boss, pencils, True) 
+        for _ in hits:
+            boss.hp -= 1
+            if boss.hp <= 0:
+                score += 2  # スコアを2倍獲得
+                boss.kill()  # ボスを消す
+                boss_active = False  # ボス状態を解除
 
     # 描画
     screen.blit(background, (0, 0))
